@@ -35,37 +35,37 @@ struct acl *load_acl(char *path)
 
 
     size = getxattr(path, OWNER, &buf, 0);
-    ////acl_present(size);
+    acl_present(size);
     char *owner = (char *)malloc((size + 1) * sizeof(char));
     size = getxattr(path, OWNER, owner, size);
     owner[size] = '\0';
 
     size = getxattr(path, NAMED_USERS, &buf, 0);
-    ////acl_present(size);
+    acl_present(size);
     char *named_users = (char *)malloc((size + 1) * sizeof(char));
     size = getxattr(path, NAMED_USERS, named_users, size);
     named_users[size] = '\0';
 
     size = getxattr(path, OWNER_GROUP, &buf, 0);
-    ////acl_present(size);
+    acl_present(size);
     char *owner_group = (char *)malloc((size + 1) * sizeof(char));
     size = getxattr(path, OWNER_GROUP, owner_group, size);
     owner_group[size] = '\0';
 
     size = getxattr(path, NAMED_GROUPS, &buf, 0);
-    ////acl_present(size);
+    acl_present(size);
     char *named_groups = (char *)malloc((size + 1) * sizeof(char));
     size = getxattr(path, NAMED_GROUPS, named_groups, size);
     named_groups[size] = '\0';
 
     size = getxattr(path, MASK, &buf, 0);
-    ////acl_present(size);
+    acl_present(size);
     char *mask = (char *)malloc((size + 1) * sizeof(char));
     size = getxattr(path, MASK, mask, size);
     mask[size] = '\0';
 
     size = getxattr(path, OTHERS, &buf, 0);
-    ////acl_present(size);
+    acl_present(size);
     char *others = (char *)malloc((size + 1) * sizeof(char));
     size = getxattr(path, OTHERS, others, size);
     others[size] = '\0';
@@ -82,37 +82,37 @@ struct acl *load_acl(char *path)
     {
 
         size = getxattr(path, DEFAULT_OWNER, &buf, 0);
-        ////acl_present(size);
+        acl_present(size);
         char *default_owner = (char *)malloc((size + 1) * sizeof(char));
         size = getxattr(path, DEFAULT_OWNER, default_owner, size);
         default_owner[size] = '\0';
 
         size = getxattr(path, DEFAULT_NAMED_USERS, &buf, 0);
-        ////acl_present(size);
+        acl_present(size);
         char *default_named_users = (char *)malloc((size + 1) * sizeof(char));
         size = getxattr(path, DEFAULT_NAMED_USERS, default_named_users, size);
         default_named_users[size] = '\0';
 
         size = getxattr(path, DEFAULT_OWNER_GROUP, &buf, 0);
-        ////acl_present(size);
+        acl_present(size);
         char *default_owner_group = (char *)malloc((size + 1) * sizeof(char));
         size = getxattr(path, DEFAULT_OWNER_GROUP, default_owner_group, size);
         default_owner_group[size] = '\0';
 
         size = getxattr(path, DEFAULT_NAMED_GROUPS, &buf, 0);
-        ////acl_present(size);
+        acl_present(size);
         char *default_named_groups = (char *)malloc((size + 1) * sizeof(char));
         size = getxattr(path, DEFAULT_NAMED_GROUPS, default_named_groups, size);
         default_named_groups[size] = '\0';
 
         size = getxattr(path, DEFAULT_MASK, &buf, 0);
-        ////acl_present(size);
+        acl_present(size);
         char *default_mask = (char *)malloc((size + 1) * sizeof(char));
         size = getxattr(path, DEFAULT_MASK, default_mask, size);
         default_mask[size] = '\0';
 
         size = getxattr(path, DEFAULT_OTHERS, &buf, 0);
-        ////acl_present(size);
+        acl_present(size);
         char *default_others = (char *)malloc((size + 1) * sizeof(char));
         size = getxattr(path, DEFAULT_OTHERS, default_others, size);
         default_others[size] = '\0';
