@@ -715,6 +715,20 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
+    //only owner can modify acls for his or her file/directory
+    uid_t ruid = getuid();
+    struct stat filestat;
+    if(stat(argv[3],&filestat)!=0) {
+        printf("%s\n",strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    uid_t ownuid = filestat.st_uid;
+    if(ruid!=ownuid) {
+        printf("Only owner can modify acls of his owned files.\n");
+        exit(EXIT_FAILURE);
+    }
+
+
     if(strcmp(argv[1],"-m")==0) 
     {
         //modify acl
