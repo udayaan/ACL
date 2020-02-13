@@ -8,6 +8,7 @@
 #include<sys/types.h>
 #include<pwd.h>
 #include<sys/wait.h>
+#include<sys/stat.h>
 #include<unistd.h>
 #include<errno.h>
 
@@ -32,109 +33,48 @@ int get_argv(int start, int end, char* argv[], char* ptr[]) {
 
 int main(int argc, char *argv[])
 {
-    /* code */
     uid_t ruid = getuid();
+
+    struct stat filestat;
     int exit_status;
-    uid_t suid = 0;
-    int i;
-    int* pipe_index = (int *)malloc(sizeof(int));
-    int num_commands = 1;
-
-    /* check for pipes in '|' format */
-    for (i=0;i<argc;++i) {
-        if (strcmp(argv[i],"|")==0){
-            pipe_index[num_commands-1] = i;
-            num_commands+=1;
-            pipe_index = (int *)realloc(pipe_index, num_commands*sizeof(int));
-        }
+    if((exit_status = stat(argv[1],&filestat))!=0){
+        printf("%s : %s\n", argv[1],strerror(errno));
+        exit(EXIT_FAILURE);
     }
-    pipe_index[num_commands-1] = argc;
+    uid_t owner_id = filestat.st_uid;  
 
-    /* initializing pipe for each piped command */  
-    int fds[num_commands][2];
-    for (i=0;i<num_commands;++i) {
-            if((exit_status=pipe(fds[i]))!=0){
-                printf("%s\n",strerror(errno));
-                exit(EXIT_FAILURE);
-        }
-    }
+    setuid(owner_id);
+    
+    int fd[2];
+    pipe(fd);
 
+    int p = fork();
 
-    int p; 
-    char **argvs;
-    int size;
-    int c = 0;
-    int start=1;
-    int proc = num_commands-1;
+    if(p==0) {
 
-    /* execute each piped command */
-    while(c!=num_commands) {
-        
-        size = pipe_index[c] - start + 1;
-        argvs = (char**)malloc(size*sizeof(char*));
-        size = get_argv(start,pipe_index[c],argv,argvs);
-        int offset=0;
+        close(1);
+        dup(fd[1]);
+        close(fd[0]);
+        close(fd[1]);
 
-        /* set uid to other user uid */
-        if(c==0 && (strcmp(argvs[0],"-u")==0)){
-            char *usr_name = argvs[1];
-            struct passwd* user; 
-            if((user=getpwnam(usr_name))==NULL){
-                printf("User doesn't exist\n!");
-                exit(EXIT_FAILURE);
-            }
-            suid = user->pw_uid; 
-            seteuid(suid);
-            offset = 2;
-            
-        }
-        
-        if((p=fork())==-1){
+        if((exit_status = execv(argv[1],argv+1))!=0) {
             printf("%s\n",strerror(errno));
             exit(EXIT_FAILURE);
         }
-
-        if(p==0) {
-            if(c>0) {
-                /* get output from previous piped command as input */
-                dup2(fds[c-1][0],0);
-            }
-            
-            /* change stdout of current proc to writting end of the pipe */
-            close(1);
-            dup(fds[c][1]);
-            close(fds[c][0]);
-
-            if((exit_status = execv(argvs[offset],argvs+offset))!=0){
-                printf("%s\n",strerror(errno));
-                exit(EXIT_FAILURE);
-            }
-        }
-
-        close(fds[c][1]);
+        exit(EXIT_SUCCESS);
+    }
+    
+    else if (p>0) {
+        close(fd[1]);
         waitpid(p,&exit_status,0);
         
-        /* revoke the priviledges */
-        setuid(ruid);
-
-        if(exit_status!=0){
-            proc = c;
-            break;
+        char buf[1];
+        while(read(fd[0],buf,1)>0) {
+            printf("%s",buf);
         }
-        
-        start = pipe_index[c]+1;
-        c+=1;
+        printf("\n");
 
-        free(argvs);
-
+        exit(exit_status);
     }
-
-    char buf[1];
-    int nbytes;
-    while((nbytes=read(fds[proc][0],buf,1))>0){
-        printf("%s",buf);
-    }
-
-    exit(exit_status);
 
 }

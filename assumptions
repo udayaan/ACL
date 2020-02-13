@@ -2,7 +2,8 @@
 2. no spaces in arguments
 3. only -x and -m options in setacl
 4. permissiions in rwx form. rw not allowed, rw- allowed.
-5. in ls when no acl perm present, no permisions are shown
+5. in ls when no acl perm present, no permissions are shown
 6. maximum number of groups to which user belongs is 1000.
 7. if acls are not set for a dir, then by default permisions to read is denied.
-8. 
+8. user can fput on files only in which he/she has DAC permission to read and write.
+9. user fget on files only in which he/she has read permission.

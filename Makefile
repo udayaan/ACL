@@ -1,3 +1,17 @@
+comp:
+	gcc -o do_exec do_exec.c
+	sudo chown root do_exec
+	sudo chgrp root do_exec
+	sudo chmod u+s do_exec
+	gcc -o setacl.o setacl.c
+	sudo chown root setacl.o
+	sudo chgrp root setacl.o
+	sudo chmod u+s setacl.o
+	gcc -o getacl.o getacl.c
+	sudo chown root getacl.o
+	sudo chgrp root getacl.o
+	sudo chmod u+s getacl.o
+
 init:
 	sudo mkdir /simple_slash
 	sudo mkdir /simple_slash/home

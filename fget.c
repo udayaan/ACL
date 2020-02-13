@@ -4,23 +4,86 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/xattr.h>
+#include <sys/wait.h>
 #include <sys/stat.h>
 #include <errno.h>
 #include "acl.h"
-#include<dirent.h>
 #include <pwd.h>
 #include <grp.h>
-
 
 int isdir(char* path) 
 {
     struct stat path_stat;
     if(stat(path,&path_stat)!=0) {
-
         printf("%s\n",strerror(errno));
         exit(EXIT_FAILURE);
     }
     return S_ISDIR(path_stat.st_mode);
+}
+
+char* substring(char* target, char* string, int start, int end) {
+    int j = 0;
+    for(int i=start;i<end;++i)  {
+        target[j] = string[i];
+        j+=1;
+    }
+    target[j] = '\0';
+    return target;
+}
+
+char* stringcat(char* dest, char* s) {
+    int l = strlen(dest);
+    dest = (char *)realloc(dest,(l+strlen(s)+1)*sizeof(char));
+    for(int i=0;i<strlen(s);++i) {
+        dest[l+i] = s[i];
+    }
+    dest[l+strlen(s)] = '\0';
+    return dest;
+}
+
+char** comma_split(int* num, char* modf)
+{
+    int length = strlen(modf);
+
+    int* indices = (int *)malloc(2*sizeof(int));
+    indices[0] = -1;
+    indices[1] = length;
+
+    int i = 0;
+    int n=1;
+    while(i<length)
+    {
+        if(modf[i]-',' == 0) 
+        {
+            indices[n] = i;
+            n+=1;
+            indices = (int *)realloc(indices,(n+1)*sizeof(int));
+            indices[n] = length; 
+        }
+        i+=1;
+    }
+    int numargs = n;
+    if(length==0) 
+    {
+        numargs=0;
+    }
+
+    // make substrings
+
+    char** args = (char **)malloc(numargs*sizeof(char*));
+    for (int i=0;i<numargs;++i) {
+        int slen = (indices[i+1] -  (indices[i]+1)) +1;
+        args[i] = (char*)malloc(slen*sizeof(char));
+        char* arg = args[i];
+        int start = 0;
+        arg = substring(arg,modf,indices[i]+1,indices[i+1]);
+        // printf("%s\n",arg);
+    }
+
+    free(indices);
+    *num = numargs;
+
+    return args;
 }
 
 struct acl *load_acl(char *path)
@@ -29,8 +92,10 @@ struct acl *load_acl(char *path)
     int size;
     char buf[0];
     int bool_isdir = 0;
-        
+    
+    
     bool_isdir = isdir(path);
+
 
     size = getxattr(path, OWNER, &buf, 0);
     ////acl_present(size);
@@ -127,86 +192,72 @@ struct acl *load_acl(char *path)
     return meta;
 }
 
+void save_acl(char* path, struct acl* meta) {
 
-char* substring(char* target, char* string, int start, int end) {
-    int j = 0;
-    for(int i=start;i<end;++i)  {
-        target[j] = string[i];
-        j+=1;
-    }
-    target[j] = '\0';
-    return target;
-}
-
-char** comma_split(int* num, char* modf)
-{
-    int length = strlen(modf);
-
-    int* indices = (int *)malloc(2*sizeof(int));
-    indices[0] = -1;
-    indices[1] = length;
-
-    int i = 0;
-    int n=1;
-    while(i<length)
+    if (setxattr(path, OWNER, meta->owner, strlen(meta->owner), 0) != 0)
     {
-        if(modf[i]-',' == 0) 
-        {
-            indices[n] = i;
-            n+=1;
-            indices = (int *)realloc(indices,(n+1)*sizeof(int));
-            indices[n] = length; 
-        }
-        i+=1;
+        printf("%s\n", strerror(errno));
+        exit(EXIT_FAILURE);
     }
-    int numargs = n;
-    if(length==0) 
+    if (setxattr(path, NAMED_USERS, meta->named_users, strlen(meta->named_users), 0) != 0)
     {
-        numargs=0;
+        printf("%s\n", strerror(errno));
+        exit(EXIT_FAILURE);
     }
-
-    // make substrings
-
-    char** args = (char **)malloc(numargs*sizeof(char*));
-    for (int i=0;i<numargs;++i) {
-        int slen = (indices[i+1] -  (indices[i]+1)) +1;
-        args[i] = (char*)malloc(slen*sizeof(char));
-        char* arg = args[i];
-        int start = 0;
-        arg = substring(arg,modf,indices[i]+1,indices[i+1]);
-        // printf("%s\n",arg);
+    if (setxattr(path, OWNER_GROUP, meta->onwer_group, strlen(meta->onwer_group), 0) != 0)
+    {
+        printf("%s\n", strerror(errno));
+        exit(EXIT_FAILURE);
     }
-
-    free(indices);
-    *num = numargs;
-
-    return args;
-}
-
-char* stringcat(char* dest, char* s) {
-    int l = strlen(dest);
-    dest = (char *)realloc(dest,(l+strlen(s)+1)*sizeof(char));
-    for(int i=0;i<strlen(s);++i) {
-        dest[l+i] = s[i];
+    if (setxattr(path, NAMED_GROUPS, meta->named_groups, strlen(meta->named_groups), 0) != 0)
+    {
+        printf("%s\n", strerror(errno));
+        exit(EXIT_FAILURE);
     }
-    dest[l+strlen(s)] = '\0';
-    return dest;
-}
-
-char* display_perm(struct acl* meta)
-{
-    char*operm = meta->owner;
-    char*gperm = meta->onwer_group;
-    char*other = meta->others;
-    char*mask = meta->mask;
-
-    char* perm = (char*)malloc(sizeof(char));
-    perm[0]='\0';
-    perm=stringcat(perm,operm);
-    perm=stringcat(perm,gperm);
-    perm=stringcat(perm,other);
-    perm=stringcat(perm,mask);
-    return perm;
+    if (setxattr(path, MASK, meta->mask, strlen(meta->mask), 0) != 0)
+    {
+        printf("%s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    if (setxattr(path, OTHERS, meta->others, strlen(meta->others), 0) != 0)
+    {
+        printf("%s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    if(meta->isdir==0){
+        return;
+    }
+    if (setxattr(path, DEFAULT_OWNER, meta->default_owner, strlen(meta->default_owner), 0) != 0)
+    {
+        printf("%s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    if (setxattr(path, DEFAULT_NAMED_USERS, meta->default_named_users, strlen(meta->default_named_users), 0) != 0)
+    {
+        printf("%s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    if (setxattr(path, DEFAULT_OWNER_GROUP, meta->default_onwer_group, strlen(meta->default_onwer_group), 0) != 0)
+    {
+        printf("%s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    if (setxattr(path, DEFAULT_NAMED_GROUPS, meta->default_named_groups, strlen(meta->default_named_groups), 0) != 0)
+    {
+        printf("%s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    if (setxattr(path, DEFAULT_MASK, meta->default_mask, strlen(meta->default_mask), 0) != 0)
+    {
+        printf("%s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    if (setxattr(path, DEFAULT_OTHERS, meta->default_others, strlen(meta->default_others), 0) != 0)
+    {
+        printf("%s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    return;
 }
 
 void get_perm_value(char* value, char* mod) 
@@ -341,6 +392,7 @@ void check_read_perm(uid_t ruid, gid_t gid, char* path) {
             exit(EXIT_FAILURE);
         }
     }
+
     int flag;
     flag =  checknameduser_or_grop_read_perm(username,direc,0);
     if(flag==1){
@@ -361,8 +413,10 @@ void check_read_perm(uid_t ruid, gid_t gid, char* path) {
             }
         } 
     }
+
     perm = direc->others;
     if(strlen(mask)==0 && perm[0]-'r'==0){
+
         return;
     }
     else if(mask[0]-'r'==0 && perm[0]-'r'==0){
@@ -374,59 +428,69 @@ void check_read_perm(uid_t ruid, gid_t gid, char* path) {
     }
 }
 
+char* readfile(char* path)
+{
+    char* agrs1[] = {"./do_exec","/bin/cat",path,(char*)0};
+    int size=0;
+    char* content = (char*)malloc(sizeof(char));
+    content[0] = '\0';
+
+    int exit_status;
+    int fd[2];
+    pipe(fd);
+
+    int p = fork();
+
+    if(p==0) {
+
+        close(1);
+        dup(fd[1]);
+        close(fd[0]);
+        close(fd[1]);
+
+        if((exit_status = execv(agrs1[0],agrs1))!=0) {
+            printf("%s\n",strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+        exit(EXIT_SUCCESS);
+    }
+    
+    else if (p>0) {
+        close(fd[1]);
+        waitpid(p,&exit_status,0);
+        
+        char buf[1];
+        while(read(fd[0],buf,1)>0) {
+            content[size] = buf[0];
+            size+=1;
+            content = (char*)realloc(content,(size+1)*sizeof(char));
+        }
+        content[size]='\0';
+        close(fd[0]);
+    }
+    return content;
+}
+
 int main(int argc, char  *argv[])
 {
-    struct dirent *de; 
+    if(argc!=2) {
+        printf("Invalid arguments\n");
+        exit(EXIT_FAILURE);
+    } 
+    if(access(argv[1],F_OK)!=0) {
+        printf("No such file or directory.");
+        exit(EXIT_FAILURE);
+    }
 
     uid_t ruid = getuid();
     gid_t gid = getgid();
+
+
     check_read_perm(ruid,gid,argv[1]);
-    
-    DIR *dr = opendir(argv[1]); 
-  
-    if (dr == NULL)   
-    { 
-        printf("Could not open current directory" ); 
-        exit(EXIT_FAILURE); 
-    } 
 
-    while ((de = readdir(dr)) != NULL) {
-        if(strcmp(de->d_name,"..")!=0 && strcmp(de->d_name,".")!=0) {
+    char* content = readfile(argv[1]);
 
-            char* path = (char*)malloc(sizeof(char)); 
-            path[0]='\0';                       
-            path=stringcat(path,argv[1]);
-            path=stringcat(path,"/");
-            path=stringcat(path,de->d_name);
+    printf("%s\n",content);
 
-            struct stat filestat;
-
-            if(stat(path,&filestat)!=0) {
-                printf("%s\n",strerror(errno));
-                exit(EXIT_FAILURE);
-            }
-
-            int size = filestat.st_size;
-            struct passwd* user; 
-            if((user=getpwuid(filestat.st_uid))==NULL){
-                exit(EXIT_FAILURE);
-            }
-            
-            struct group* grp; 
-            if((grp=getgrgid(filestat.st_gid))==NULL){
-                exit(EXIT_FAILURE);
-            }
-
-            struct acl* meta = load_acl(path);
-
-            printf("owner:%s  group:%s %d   %s   %s\n", user->pw_name, grp->gr_name, size, de->d_name, 
-            S_ISDIR(filestat.st_mode)?"directory":"file");
-            printf("%s: permissions: %s\n",path,display_perm(meta));
-            free(path);
-        }
-    }
-
-    closedir(dr);  
-    
-    exit(EXIT_SUCCESS);
+    return 0;
 }
