@@ -1,4 +1,5 @@
 1. setacl -x u:name,g:name,m,d:u,d:g,d:m,d:o filename
 2. no spaces in arguments
 3. only -x and -m options in setacl
-4. 
+4. in ls when no acl perm present, no permissiions are shown
+5. 
