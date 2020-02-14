@@ -4,8 +4,10 @@
 4. permissiions in rwx form. rw not allowed, rw- allowed.
 5. in ls when no acl perm present, no permissions are shown
 6. maximum number of groups to which user belongs is 1000.
-7. if acls are not set for a dir, then by default permisions to read is denied.
+7. if acls are not set for a dir, then by default permissions to read is denied.
 8. user can fput on files only in which he/she has DAC permission to read and write.
 9. user fget on files only in which he/she has read permission.
 10. expected complete path to files or programs.
-
+11. create_dir takes full directory path as input.
+12. on the directorires in which new directory is being created using create_dir, atleast 
+DAC read and write permissions are their to the owner of that directory. 

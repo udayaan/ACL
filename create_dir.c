@@ -430,10 +430,106 @@ void check_write_perm(uid_t ruid, gid_t gid, char* path) {
     }
 }
 
+char* parentdirname(char* path) 
+{
+    char * prevdir = (char*)malloc(sizeof(char));
+    prevdir[0] = '\0';
+    int len = strlen(path);
+    int end = len-1;
+    int lastslash = 0;
+    while (end>=0)
+    {
+        if(path[end]-'/'==0) {
+            lastslash = end;
+            break;
+        }
+        end-=1;
+    }
+    
+    prevdir = (char*)realloc(prevdir,(lastslash)*sizeof(char));
+
+    int start=0;
+    while (start<lastslash) 
+    {
+        prevdir[start] = path[start];
+        start+=1;
+    }
+    prevdir[start] = '\0';
+    return prevdir;
+}
+
+void copy_default(char* path, struct acl* meta) 
+{
+    char * prevdir = parentdirname(path);
+
+    if(strlen(prevdir)==0) {
+        return;
+    }
+    struct acl* parentacl = load_acl(prevdir);
+    if(strlen(parentacl->default_owner)!=0) {
+        meta->owner = parentacl->default_owner;
+    }
+    if(strlen(parentacl->default_named_users)!=0) {
+        meta->named_users = parentacl->default_named_users;
+    }
+    if(strlen(parentacl->default_onwer_group)!=0) {
+        meta->onwer_group = parentacl->default_onwer_group;
+    }
+    if(strlen(parentacl->default_named_groups)!=0) {
+        meta->named_groups = parentacl->default_named_groups;
+    }
+    if(strlen(parentacl->default_mask)!=0) {
+        meta->mask = parentacl->default_mask;
+    }
+    if(strlen(parentacl->default_others)!=0) {
+        meta->others = parentacl->default_others;
+    }
+    if(meta->isdir==0) {
+        return;
+    }
+    if(strlen(parentacl->default_owner)!=0) {
+        meta->default_owner = parentacl->default_owner;
+    }
+    if(strlen(parentacl->default_named_users)!=0) {
+        meta->default_named_users = parentacl->default_named_users;
+    }
+    if(strlen(parentacl->default_onwer_group)!=0) {
+        meta->default_onwer_group = parentacl->default_onwer_group;
+    }
+    if(strlen(parentacl->default_named_groups)!=0) {
+        meta->default_named_groups = parentacl->default_named_groups;
+    }
+    if(strlen(parentacl->default_mask)!=0) {
+        meta->default_mask = parentacl->default_mask;
+    }
+    if(strlen(parentacl->default_others)!=0) {
+        meta->default_others = parentacl->default_others;
+    }
+    return;
+}
+
 int main(int argc, char *argv[])
 {
     uid_t ruid = getuid();
     gid_t gid = getgid();
-    
-    return 0;
+
+    char* parentdir = parentdirname(argv[1]);
+    check_write_perm(ruid,gid,parentdir);
+    free(parentdir);
+
+    if(mkdir(argv[1],0777)!=0) {
+        printf("%s\n",strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    chown(argv[1],ruid,gid);
+    chmod(argv[1],0600);
+
+    struct acl* meta = load_acl(argv[1]);
+    meta->owner="rw-";
+    meta->onwer_group="r--";
+    meta->others = "r--";
+    copy_default(argv[1],meta);
+    save_acl(argv[1],meta);
+
+    exit(EXIT_SUCCESS);
 }

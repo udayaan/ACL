@@ -622,11 +622,32 @@ char* parentdirname(char* path)
 void copy_default(char* path, struct acl* meta) 
 {
     char * prevdir = parentdirname(path);
+
     if(strlen(prevdir)==0) {
         return;
     }
-
     struct acl* parentacl = load_acl(prevdir);
+    if(strlen(parentacl->default_owner)!=0) {
+        meta->owner = parentacl->default_owner;
+    }
+    if(strlen(parentacl->default_named_users)!=0) {
+        meta->named_users = parentacl->default_named_users;
+    }
+    if(strlen(parentacl->default_onwer_group)!=0) {
+        meta->onwer_group = parentacl->default_onwer_group;
+    }
+    if(strlen(parentacl->default_named_groups)!=0) {
+        meta->named_groups = parentacl->default_named_groups;
+    }
+    if(strlen(parentacl->default_mask)!=0) {
+        meta->mask = parentacl->default_mask;
+    }
+    if(strlen(parentacl->default_others)!=0) {
+        meta->others = parentacl->default_others;
+    }
+    if(meta->isdir==0) {
+        return;
+    }
     if(strlen(parentacl->default_owner)!=0) {
         meta->default_owner = parentacl->default_owner;
     }
@@ -675,11 +696,12 @@ int main(int argc, char  *argv[])
         setuid(getuid());
         f = fopen(argv[1],"w");
     }
-
+    
     if(f!=NULL) {
         fputs(input,f);
         fputs("\n",f);
         fclose(f);
+        chmod(argv[1],0600);
         struct acl* meta = load_acl(argv[1]);
         meta->owner="rw-";
         meta->onwer_group="r--";
@@ -702,6 +724,8 @@ int main(int argc, char  *argv[])
     if(f!=NULL) {
         fputs(content,f);
         fputs("\n",f);
+        fclose(f);
+        chmod(argv[1],0600);
         struct acl* meta = load_acl(argv[1]);
         if(strlen(meta->owner)==0) {
             meta->owner="rw-";

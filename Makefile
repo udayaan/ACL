@@ -23,6 +23,10 @@ comp:
 	sudo chown root fget.o
 	sudo chgrp root fget.o
 	sudo chmod u+s fget.o
+	gcc -o create_dir.o create_dir.c
+	sudo chown root create_dir.o
+	sudo chgrp root create_dir.o
+	sudo chmod u+s create_dir.o
 
 init:
 	sudo mkdir /simple_slash
