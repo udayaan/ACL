@@ -430,7 +430,7 @@ void check_read_perm(uid_t ruid, gid_t gid, char* path) {
 
 char* readfile(char* path)
 {
-    char* agrs1[] = {"./do_exec","/bin/cat",path,(char*)0};
+    char* agrs1[] = {"/bin/cat",path,(char*)0};
     int size=0;
     char* content = (char*)malloc(sizeof(char));
     content[0] = '\0';

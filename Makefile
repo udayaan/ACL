@@ -1,8 +1,8 @@
 comp:
-	gcc -o do_exec do_exec.c
-	sudo chown root do_exec
-	sudo chgrp root do_exec
-	sudo chmod u+s do_exec
+	gcc -o do_exec.o do_exec.c
+	sudo chown root do_exec.o
+	sudo chgrp root do_exec.o
+	sudo chmod u+s do_exec.o
 	gcc -o setacl.o setacl.c
 	sudo chown root setacl.o
 	sudo chgrp root setacl.o
@@ -69,3 +69,5 @@ uninstall:
 	sudo groupdel simple_slash
 	sudo rm -r /simple_slash
 	
+clean:
+	sudo rm *.o
