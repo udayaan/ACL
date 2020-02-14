@@ -11,3 +11,6 @@
 11. create_dir takes full directory path as input.
 12. on the directorires in which new directory is being created using create_dir, atleast 
 DAC read and write permissions are their to the owner of that directory. 
+13. only owner of file and fakeroot user can set acl entries of a while with or without 
+the write permission. No other user can modify the entries without write permission to 
+that file.

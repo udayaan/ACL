@@ -7,6 +7,8 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include "acl.h"
+#include <pwd.h>
+#include <grp.h>
 
 void acl_present(int status) 
 {
@@ -250,7 +252,6 @@ char** comma_split(int* num, char* modf)
         arg = substring(arg,modf,indices[i]+1,indices[i+1]);
         // printf("%s\n",arg);
     }
-
     free(indices);
     *num = numargs;
 
@@ -338,6 +339,7 @@ void add_named_user_or_group(struct acl* meta,int flag, char* name, char* value)
     {
         names = comma_split(&num,meta->default_named_groups);
     }
+
     int i;
 
     for(i=0;i<num;++i) {
@@ -350,10 +352,18 @@ void add_named_user_or_group(struct acl* meta,int flag, char* name, char* value)
             names[i] = ugname;
             break;
         }
+
         free(ugname);
     }
+    if(num==0) {
+        num+=1;
+        names = (char**)malloc(num*sizeof(char*));
+        name = strcat(name,":");
+        name = strcat(name,value);
+        names[num-1] = name;
+    }
     
-    if(i==num) 
+    else if(num>0 && i==num) 
     {
         num+=1;
         names = (char**)realloc(names,num*sizeof(char*));
@@ -687,6 +697,126 @@ void remove_acl(int numargs, char** argmods, struct acl* meta, char* path)
     }
 }
 
+int  checknameduser_or_grop_write_perm(char* username, struct acl* meta, int flag) {
+    char* list;
+    if(flag==0){
+        list = meta->named_users;
+    } 
+    else if(flag==1) {
+        list = meta->named_groups;
+    }
+
+    int len;
+    char** names = comma_split(&len,list);
+    char* perm = (char*)malloc(sizeof(char));
+    perm[0] = '\0';
+    char* mask = meta->mask;
+
+    for (int i=0;i<len;++i) {
+        char* ugname = (char*)malloc(sizeof(char));
+        get_name(ugname,names[i]);
+        if(strcmp(ugname,username)==0) {
+            get_perm_value(perm,names[i]);
+            free(ugname);
+            break;   
+        }
+        free(ugname);
+    }
+
+    if(strlen(perm)!=0) {
+        if(strlen(mask)==0 && perm[1]-'w'==0){
+            free(perm);
+            return 1;
+        }
+        else if(mask[1]-'w'==0 && perm[1]-'w'==0){
+            free(perm);
+            return 1;
+        }
+        else{
+            free(perm);
+            printf("Permission denied.\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+    return 0;
+}
+
+void check_write_perm(uid_t ruid, gid_t gid, char* path) {
+
+    struct acl* direc = load_acl(path);
+
+    struct passwd* user; 
+    if((user=getpwuid(ruid))==NULL) {
+        printf("%s\n",strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    struct stat dirstat;
+    if(stat(path,&dirstat)!=0) {
+        printf("%s\n",strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    char* username = user->pw_name;
+    char* perm;
+    char* mask = direc->mask;
+
+    if(dirstat.st_uid == ruid) {
+        perm  = direc->owner;
+        if(perm[1]-'w'==0){
+            return;
+        }
+        else{
+            printf("Permission denied.\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+    if(dirstat.st_gid == gid) {
+        perm = direc->onwer_group;
+        if(strlen(mask)==0 && perm[1]-'w'==0){
+            return;
+        }
+        else if(mask[1]-'w'==0 && perm[1]-'w'==0){
+            return;
+        }
+        else{
+            printf("Permission denied.\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+    int flag;
+    flag =  checknameduser_or_grop_write_perm(username,direc,0);
+    if(flag==1){
+        return;
+    }
+    
+    int ngrps=1000;
+    int* grps=(int*)malloc(ngrps*sizeof(gid_t));
+    getgrouplist(username,gid,grps,&ngrps);
+    struct group* gp;
+    for(int j=0;j<ngrps;++j) {
+        gid_t g = grps[j];
+        gp = getgrgid(g);
+        if(gp!=NULL){
+            flag =  checknameduser_or_grop_write_perm(gp->gr_name,direc,1);
+            if(flag==1){
+                return;
+            }
+        } 
+    }
+    perm = direc->others;
+    if(strlen(mask)==0 && perm[1]-'w'==0){
+        return;
+    }
+    else if(mask[1]-'w'==0 && perm[1]-'w'==0){
+        return;
+    }
+    else{
+        printf("Permission denied.\n");
+        exit(EXIT_FAILURE);
+    }
+}
+
 void display_acl(struct acl* s) {
     printf("OWNER:%s\n",s->owner);
     printf("NAMED_USERS:%s\n",s->named_users);
@@ -715,19 +845,27 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    //only owner can modify acls for his or her file/directory
     uid_t ruid = getuid();
+    gid_t gid = getgid();
     struct stat filestat;
     if(stat(argv[3],&filestat)!=0) {
         printf("%s\n",strerror(errno));
         exit(EXIT_FAILURE);
     }
     uid_t ownuid = filestat.st_uid;
-    if(ruid!=ownuid) {
-        printf("Only owner can modify acls of his owned files.\n");
-        exit(EXIT_FAILURE);
+    struct passwd* fakeroot;
+    fakeroot=getpwnam("fakeroot");
+    if(ruid==ownuid) {
+        /* do nothing */
     }
-
+    else if (fakeroot!=NULL && fakeroot->pw_uid == ruid)
+    {
+        /* do nothing */
+    }
+    else
+    {
+        check_write_perm(ruid,gid,argv[3]);    
+    }
 
     if(strcmp(argv[1],"-m")==0) 
     {
@@ -735,6 +873,7 @@ int main(int argc, char *argv[])
         char* modf = argv[2];
         int numargs;
         char** argmods = comma_split(&numargs,modf);
+
         if(numargs==0) {
             printf("Invalid arguments.\n");
             exit(EXIT_FAILURE);
