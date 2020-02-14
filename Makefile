@@ -11,6 +11,18 @@ comp:
 	sudo chown root getacl.o
 	sudo chgrp root getacl.o
 	sudo chmod u+s getacl.o
+	gcc -o fput.o fput.c
+	sudo chown root fput.o
+	sudo chgrp root fput.o
+	sudo chmod u+s fput.o
+	gcc -o ls.o ls.c
+	sudo chown root ls.o
+	sudo chgrp root ls.o
+	sudo chmod u+s ls.o
+	gcc -o fget.o fget.c
+	sudo chown root fget.o
+	sudo chgrp root fget.o
+	sudo chmod u+s fget.o
 
 init:
 	sudo mkdir /simple_slash

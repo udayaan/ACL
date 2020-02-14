@@ -7,3 +7,5 @@
 7. if acls are not set for a dir, then by default permisions to read is denied.
 8. user can fput on files only in which he/she has DAC permission to read and write.
 9. user fget on files only in which he/she has read permission.
+10. expected complete path to files or programs.
+

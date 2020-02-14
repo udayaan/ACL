@@ -550,7 +550,7 @@ void check_write_perm(uid_t ruid, gid_t gid, char* path) {
 
 char* readfile(char* path)
 {
-    char* agrs1[] = {"./do_exec","/bin/cat",path,(char*)0};
+    char* agrs1[] = {"/bin/cat",path,(char*)0};
     int size=0;
     char* content = (char*)malloc(sizeof(char));
     content[0] = '\0';
@@ -591,6 +591,63 @@ char* readfile(char* path)
     return content;
 }
 
+char* parentdirname(char* path) 
+{
+    char * prevdir = (char*)malloc(sizeof(char));
+    prevdir[0] = '\0';
+    int len = strlen(path);
+    int end = len-1;
+    int lastslash = 0;
+    while (end>=0)
+    {
+        if(path[end]-'/'==0) {
+            lastslash = end;
+            break;
+        }
+        end-=1;
+    }
+    
+    prevdir = (char*)realloc(prevdir,(lastslash)*sizeof(char));
+
+    int start=0;
+    while (start<lastslash) 
+    {
+        prevdir[start] = path[start];
+        start+=1;
+    }
+    prevdir[start] = '\0';
+    return prevdir;
+}
+
+void copy_default(char* path, struct acl* meta) 
+{
+    char * prevdir = parentdirname(path);
+    if(strlen(prevdir)==0) {
+        return;
+    }
+
+    struct acl* parentacl = load_acl(prevdir);
+    if(strlen(parentacl->default_owner)!=0) {
+        meta->default_owner = parentacl->default_owner;
+    }
+    if(strlen(parentacl->default_named_users)!=0) {
+        meta->default_named_users = parentacl->default_named_users;
+    }
+    if(strlen(parentacl->default_onwer_group)!=0) {
+        meta->default_onwer_group = parentacl->default_onwer_group;
+    }
+    if(strlen(parentacl->default_named_groups)!=0) {
+        meta->default_named_groups = parentacl->default_named_groups;
+    }
+    if(strlen(parentacl->default_mask)!=0) {
+        meta->default_mask = parentacl->default_mask;
+    }
+    if(strlen(parentacl->default_others)!=0) {
+        meta->default_others = parentacl->default_others;
+    }
+    return;
+}
+
 int main(int argc, char  *argv[])
 {
     char buff[1];
@@ -615,6 +672,7 @@ int main(int argc, char  *argv[])
     FILE* f=NULL;
 
     if(access(argv[1],F_OK)!=0) {
+        setuid(getuid());
         f = fopen(argv[1],"w");
     }
 
@@ -626,13 +684,13 @@ int main(int argc, char  *argv[])
         meta->owner="rw-";
         meta->onwer_group="r--";
         meta->others = "r--";
+        copy_default(argv[1],meta);
         save_acl(argv[1],meta);
         exit(EXIT_SUCCESS);
     }
 
     uid_t ruid = getuid();
     gid_t gid = getgid();
-
 
     check_read_perm(ruid,gid,argv[1]);
     check_write_perm(ruid,gid,argv[1]);
